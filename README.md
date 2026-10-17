@@ -31,7 +31,7 @@ Tested on one Galaxy Buds4 Pro (SM-R640, firmware R640XXU0AZD2, status revision 
 | Feature | Status | Notes |
 |---|---|---|
 | Battery L/R/case, wear state | Verified | Case battery reads 0 while both buds are out of the case; shown as "No data" |
-| Charging indicator | Not tested | Status offset 43 assumed from the +1 shift seen at 44/46; never observed (buds were worn throughout) |
+| Charging indicator | Works | Status offset 43; confirmed by the user on a real device |
 | Noise control: Off / ANC / Ambient / Adaptive | Verified | Adaptive is `NOISE_CONTROLS [3]` |
 | Ambient level (5 steps) | Verified | |
 | ANC level (0–4) | ACK + stored | The value is stored and reported back; the audible difference was not checked |
@@ -53,7 +53,7 @@ Tested on one Galaxy Buds4 Pro (SM-R640, firmware R640XXU0AZD2, status revision 
 | Find my earbuds: ring | Works | Confirmed by the user on a real device. Stop and per-side mute were tested too |
 | Firmware / serial / model info | Verified | |
 | Auto-connect when the Buds connect | Verified | |
-| Reconnect after the Buds leave and come back | Not tested | Needs physically disconnecting the Buds |
+| Reconnect after the Buds leave and come back | Works | Icon hides when the Buds go into the case and reappears on reconnect; confirmed by the user |
 | Game mode | Unavailable | The buds neither acknowledge nor apply `GAME_MODE (0x87)` |
 | Adaptive volume | Unavailable | No response to `0xC5` |
 | Auto-answer calls, double pinch & hold | Unavailable | No known command |
