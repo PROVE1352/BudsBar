@@ -96,7 +96,7 @@
 "Switch to ambient when I talk" = "말하면 주변소리로 전환";
 "The buds acknowledge the timeout but do not report it back, so the last value set here is shown" = "복귀 시간은 버즈가 ACK하지만 상태 보고(ESU)에 나타나지 않아 앱에서 마지막 설정값을 표시";
 "The buds neither acknowledge nor apply GAME_MODE (0x87)" = "GAME_MODE(0x87)를 보내도 버즈가 응답·반영하지 않음";
-"The earbuds will beep loudly. Take them out of your ears first. (Not verified on a real device)" = "이어버드에서 큰 소리가 납니다. 귀에서 빼고 사용하세요. (실기기 미검증)";
+"The earbuds will beep loudly. Take them out of your ears first." = "이어버드에서 큰 소리가 납니다. 귀에서 빼고 사용하세요.";
 "Tone" = "음색";
 "Touch" = "터치";
 "Touch enabled" = "터치 사용";

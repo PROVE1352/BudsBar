@@ -50,7 +50,7 @@ Tested on one Galaxy Buds4 Pro (SM-R640, firmware R640XXU0AZD2, status revision 
 | Pause when an earbud is removed (wear detection) | Verified | |
 | Call path control, seamless connection, extra clear call, Speak seamlessly, siren detection | Verified | |
 | Bixby voice wake-up | ACK only | |
-| Find my earbuds: ring | Not tested | Never sent during testing (loud, buds were in someone's ears). Stop and per-side mute were tested |
+| Find my earbuds: ring | Works | Confirmed by the user on a real device. Stop and per-side mute were tested too |
 | Firmware / serial / model info | Verified | |
 | Auto-connect when the Buds connect | Verified | |
 | Reconnect after the Buds leave and come back | Not tested | Needs physically disconnecting the Buds |

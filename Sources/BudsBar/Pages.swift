@@ -208,7 +208,7 @@ struct FindPage: View {
         let s = buds.state
         VStack(alignment: .leading, spacing: 4) {
             Block("Find my earbuds") {
-                Note("The earbuds will beep loudly. Take them out of your ears first. (Not verified on a real device)")
+                Note("The earbuds will beep loudly. Take them out of your ears first.")
                 HStack {
                     Button(s.ringing ? "Ringing…" : "Ring") { buds.findEarbuds(true) }.disabled(s.ringing)
                     Button("Stop") { buds.findEarbuds(false) }
