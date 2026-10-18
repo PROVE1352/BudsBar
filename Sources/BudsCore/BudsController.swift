@@ -140,14 +140,18 @@ public final class BudsController {
 
     /// The SPP channel can drop while the buds stay connected (e.g. the phone grabbed it).
     /// Retry a couple of times in that case only; once the baseband link is gone we just wait
-    /// for the connect notification.
+    /// for the connect notification. Retries never page: when the buds have moved to the phone,
+    /// paging them would pull them back to the Mac.
     private func retryWhileBasebandUp() {
         guard autoReconnect, budsPresent, rfcommRetries < 3 else { return }
         rfcommRetries += 1
         let delay = Double(rfcommRetries) * 3
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
-            await self?.connect(page: true)
+            guard let self, self.budsPresent,
+                  let device = BudsConnection.findBuds(address: self.address), device.isConnected()
+            else { return }
+            await self.connect(page: false)
         }
     }
 
@@ -180,7 +184,7 @@ public final class BudsController {
                 guard !self.connection.isOpen else { return }
                 Task {
                     try? await Task.sleep(for: .seconds(1.5))   // let A2DP/HFP settle first
-                    await self.connect(page: true)      // already connected: returns immediately
+                    await self.connect(page: false)     // never page from an event: see retryWhileBasebandUp
                 }
             },
             disconnected: { [weak self] device in
