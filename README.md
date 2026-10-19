@@ -61,7 +61,7 @@ Tested on one Galaxy Buds4 Pro (SM-R640, firmware R640XXU0AZD2, status revision 
 | Firmware / serial / model info | Verified | |
 | Auto-connect when the Buds connect | Verified | |
 | Reconnect after the Buds leave and come back | Works | Confirmed by the user. The icon now stays visible (dimmed while away) |
-| Bring to Mac (take the Buds from the phone) | Not tested | Page, 3 s hold check, RFCOMM; up to 4 attempts 2 s apart |
+| Bring to Mac (take the Buds from the phone) | Tried once | Connected on the 1st attempt in one try. Page, 3 s hold check, RFCOMM; up to 4 attempts 2 s apart |
 | Game mode | Unavailable | The buds neither acknowledge nor apply `GAME_MODE (0x87)` |
 | Adaptive volume | Unavailable | No response to `0xC5` |
 | Auto-answer calls, double pinch & hold | Unavailable | No known command |

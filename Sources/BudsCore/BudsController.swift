@@ -151,6 +151,7 @@ public final class BudsController {
     }
 
     private func didConnect(_ device: IOBluetoothDevice, name: String) {
+        if bringTask == nil { bring = .idle }   // drop a stale Bring result after an automatic connect
         hasESU = false
         rfcommRetries = 0
         status = .connected(name)
@@ -282,6 +283,7 @@ public final class BudsController {
 
     private func linkClosed() {
         log("rfcomm closed")
+        if bring == .succeeded { bring = .idle }
         pollTask?.cancel()
         status = deviceName.map { .waiting($0) } ?? .idle
         retryWhileBasebandUp()
@@ -309,6 +311,7 @@ public final class BudsController {
         log("baseband disconnected")
         budsPresent = false
         basebandDrops += 1
+        if bring == .succeeded { bring = .idle }
         pollTask?.cancel()
         connection.disconnect()
         disconnectNotification?.unregister()
