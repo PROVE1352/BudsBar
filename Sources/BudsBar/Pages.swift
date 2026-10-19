@@ -177,7 +177,6 @@ struct MiscPage: View {
 
             Block("App") {
                 Toggle("Launch at login", isOn: $model.launchAtLogin)
-                Toggle("Show menu bar icon even without Buds", isOn: $model.alwaysShowIcon)
             }
 
             Block("Firmware") {

@@ -96,15 +96,35 @@ private struct BatteryTile: View {
     }
 }
 
+/// Not connected: status line plus the one explicit action that may pull the Buds over.
 private struct DisconnectedView: View {
     let buds: BudsController
 
     var body: some View {
+        let bring = buds.bring
         VStack(alignment: .leading, spacing: 8) {
-            Text("BudsBar opens the settings channel automatically when your Buds connect. Take them out of the case or connect them over Bluetooth.")
-                .font(.callout).foregroundStyle(.secondary)
-            if let e = buds.lastError { Text(e).font(.caption).foregroundStyle(.red) }
-            Button("Connect now") { Task { await buds.connect(page: true) } }
+            HStack(spacing: 8) {
+                Button(bring.isActive ? String(localized: "Cancel") : String(localized: "Bring to Mac")) {
+                    buds.toggleBring()
+                }
+                .controlSize(.regular)
+                .disabled(bring == .cancelling)
+                if bring.isActive { ProgressView().controlSize(.small) }
+            }
+            if let text = bring.label {
+                Text(text).font(.caption).foregroundStyle(resultColor(bring))
+            } else if let e = buds.lastError {
+                Text(e).font(.caption).foregroundStyle(.red)
+            }
+            Note("Connects automatically when the Buds join this Mac. Bring to Mac takes them from your phone.")
+        }
+    }
+
+    private func resultColor(_ b: BudsController.BringState) -> Color {
+        switch b {
+        case .failed: .red
+        case .succeeded: .green
+        default: .secondary
         }
     }
 }

@@ -15,8 +15,15 @@ Swift + SwiftUI (`MenuBarExtra`) + IOBluetooth RFCOMM. English and Korean UI (fo
   buds push after every change. (Seen for changes made by BudsBar; changes made by touch or from a phone
   arrive through the same messages but were not tried by hand.)
 - Starts at login and stays quiet: while the Buds are not connected it holds no RFCOMM channel, runs no
-  timers and does no polling; it only waits for IOBluetooth connect / disconnect notifications. The menu
-  bar icon is hidden while the Buds are away and appears when they connect.
+  timers and does no polling; it only waits for IOBluetooth connect / disconnect notifications.
+- The menu bar icon is always shown. It is dimmed while BudsBar has no connection to the Buds, and the
+  panel then shows only the status and a **Bring to Mac** button.
+- Never takes the Buds from your phone on its own. When the Buds join the Mac by themselves, BudsBar
+  opens its settings channel; automatic reconnects never page the Buds. Only **Bring to Mac** does:
+  it pages the Buds, checks that the link stays up for 3 seconds (Buds that prefer the phone often
+  drop it within a second), then opens the settings channel. If the link drops it retries every
+  2 seconds, up to 4 attempts, showing "Bringing to Mac… 2/4". Press the button again to cancel.
+  The retries run only inside that one press.
 - Includes a debugging CLI (`BudsBar --cli …`) with raw frame send and hex dump.
 
 ## Feature status
@@ -53,7 +60,8 @@ Tested on one Galaxy Buds4 Pro (SM-R640, firmware R640XXU0AZD2, status revision 
 | Find my earbuds: ring | Works | Confirmed by the user on a real device. Stop and per-side mute were tested too |
 | Firmware / serial / model info | Verified | |
 | Auto-connect when the Buds connect | Verified | |
-| Reconnect after the Buds leave and come back | Works | Icon hides when the Buds go into the case and reappears on reconnect; confirmed by the user |
+| Reconnect after the Buds leave and come back | Works | Confirmed by the user. The icon now stays visible (dimmed while away) |
+| Bring to Mac (take the Buds from the phone) | Not tested | Page, 3 s hold check, RFCOMM; up to 4 attempts 2 s apart |
 | Game mode | Unavailable | The buds neither acknowledge nor apply `GAME_MODE (0x87)` |
 | Adaptive volume | Unavailable | No response to `0xC5` |
 | Auto-answer calls, double pinch & hold | Unavailable | No known command |
@@ -86,8 +94,7 @@ Open it once; macOS asks for Bluetooth permission. Because the signature is ad h
 after a rebuild. BudsBar registers itself as a login item on first launch; you can turn that off in
 the panel (More → Launch at login).
 
-The icon is hidden while your Buds are disconnected. To reach the panel anyway, launch the app again
-(it then shows the icon until it quits) or turn on "Show menu bar icon even without Buds".
+The menu bar icon is always there and is dimmed while the Buds are not connected to BudsBar.
 To pin a specific pair: `defaults write io.github.prove1352.BudsBar deviceAddress xx-xx-xx-xx-xx-xx`.
 
 ## CLI
@@ -101,6 +108,7 @@ $B --cli -v nc adaptive   # change noise control, print every frame
 $B --cli raw 78 01        # send msgId + payload, print the replies
 $B --cli dump 30          # hex dump of everything received for 30 s
 $B --cli esu              # raw status payload with offsets
+$B --cli bring            # Bring to Mac with progress (takes the Buds from the phone)
 $B --cli selftest         # offline frame / CRC test vectors
 $B --cli help             # all commands
 ```

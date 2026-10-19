@@ -19,11 +19,9 @@
 "Bass boost" = "저음 강조";
 "Bixby voice wake-up" = "빅스비 음성 호출";
 "Bluetooth connection failed (0x%08X)" = "블루투스 연결 실패 (0x%08X)";
-"BudsBar opens the settings channel automatically when your Buds connect. Take them out of the case or connect them over Bluetooth." = "버즈가 연결되면 자동으로 설정 채널을 엽니다. 케이스에서 꺼내거나 블루투스로 연결하세요.";
 "Case" = "케이스";
 "Center" = "중앙";
 "Clear" = "선명하게";
-"Connect now" = "지금 연결";
 "Connection & voice" = "연결·음성";
 "Conversation detection" = "대화 감지";
 "Could not get the RFCOMM channel number" = "RFCOMM 채널 번호를 얻지 못함";
@@ -85,7 +83,6 @@
 "Seamless connection (auto switch between Samsung devices)" = "심리스 연결 (삼성 기기 자동 전환)";
 "Separate left/right levels" = "좌우 개별 크기 사용";
 "Serial" = "시리얼";
-"Show menu bar icon even without Buds" = "버즈가 없어도 메뉴바 아이콘 표시";
 "Single pinch" = "한 번 탭(핀치)";
 "Siren detection" = "사이렌 감지";
 "Soft" = "부드럽게";
@@ -105,12 +102,23 @@
 "Triple pinch" = "세 번 탭(핀치)";
 "Voice assistant" = "음성 비서";
 "Volume" = "볼륨";
-"Waiting for %@ (take them out of the case)" = "%@ 연결 대기 (케이스에서 꺼내기)";
 "Wake-up is not reported back, so the last value set here is shown" = "빅스비 호출은 상태 보고에 반영되지 않아 앱의 마지막 설정값을 표시";
 "Wearing & calls" = "착용·통화";
 "Level %lld" = "%lld단계";
 "%@ timed out" = "%@ 시간 초과";
 "Connecting to %@…" = "%@ 연결 중…";
-"Waiting for %@ (take them out of the case)" = "%@ 연결 대기 (케이스에서 꺼내기)";
 "Error: %@" = "오류: %@";
 "Connected" = "연결됨";
+
+/* Bring to Mac */
+"Bring to Mac" = "맥으로 가져오기";
+"Cancel" = "취소";
+"Bringing to Mac… %d/%d" = "가져오는 중 %d/%d";
+"Cancelling…" = "취소하는 중…";
+"Cancelled" = "취소됨";
+"Connected to this Mac" = "이 맥에 연결됨";
+"Not connected to this Mac" = "이 맥에 연결되지 않음";
+"The Buds did not stay connected. They may be in use on your phone." = "버즈가 연결을 유지하지 않았습니다. 폰에서 사용 중일 수 있습니다.";
+"Connects automatically when the Buds join this Mac. Bring to Mac takes them from your phone." = "버즈가 이 맥에 붙으면 자동으로 연결됩니다. 맥으로 가져오기를 누르면 폰에서 가져옵니다.";
+"Bluetooth connection" = "블루투스 연결";
+"BudsBar (not connected)" = "BudsBar (연결 안 됨)";

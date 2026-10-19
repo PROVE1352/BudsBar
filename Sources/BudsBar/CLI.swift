@@ -30,6 +30,7 @@ enum CLI {
       mute <0|1> <0|1>             mute left/right while finding
       fw                           firmware / serial info
       devices                      list paired Buds (no RFCOMM)
+      bring                        Bring to Mac: page the Buds (takes them from the phone), retry up to 4x
       login [on|off]               launch-at-login state (run from the installed .app)
       snapshot <dir>               render the panel pages to PNG (UI check)
       selftest                     offline frame/CRC test vectors (no Bluetooth)
@@ -80,6 +81,7 @@ enum CLI {
         }
 
         let buds = BudsController(address: address)
+        if command == "bring" { bring(buds); return }
         let started = Date()
         func stamp() -> String { String(format: "%6.2f", Date().timeIntervalSince(started)) }
         let dumpAll = verbose || command == "dump" || command == "raw"
@@ -103,6 +105,19 @@ enum CLI {
             }
             buds.disconnect()
             exit(0)
+        }
+    }
+
+    /// The same Bring to Mac loop as the panel button; progress comes from the controller log.
+    private static func bring(_ buds: BudsController) {
+        let started = Date()
+        buds.log = { print(String(format: "%6.2f", Date().timeIntervalSince(started)) + " -- \($0)") }
+        buds.start()
+        Task { @MainActor in
+            let ok = await buds.startBring().value
+            print(buds.bring.label ?? (ok ? "connected" : "failed"))
+            buds.disconnect()
+            exit(ok ? 0 : 1)
         }
     }
 

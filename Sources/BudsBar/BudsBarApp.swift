@@ -10,13 +10,6 @@ final class AppModel {
     static let shared = AppModel()
 
     let buds: BudsController
-    /// Set when the user re-launches the app while the icon is hidden; shows it until quit.
-    var forceShowIcon = false
-    var alwaysShowIcon = UserDefaults.standard.bool(forKey: "alwaysShowIcon") {
-        didSet { UserDefaults.standard.set(alwaysShowIcon, forKey: "alwaysShowIcon") }
-    }
-
-    var iconVisible: Bool { buds.budsPresent || alwaysShowIcon || forceShowIcon }
 
     var launchAtLogin: Bool {
         get { SMAppService.mainApp.status == .enabled }
@@ -52,19 +45,12 @@ final class AppModel {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        MainActor.assumeIsolated { AppModel.shared.forceShowIcon = true }
-        return false
-    }
-}
-
 struct BudsBarApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var model = AppModel.shared
 
     var body: some Scene {
-        MenuBarExtra(isInserted: Binding(get: { model.iconVisible }, set: { _ in })) {
+        // The icon is always there; it is dimmed while BudsBar has no settings channel.
+        MenuBarExtra {
             ContentView(model: model, buds: model.buds)
         } label: {
             MenuBarLabel(buds: model.buds)
@@ -78,13 +64,35 @@ private struct MenuBarLabel: View {
 
     var body: some View {
         let s = buds.state
-        if buds.isConnected, let l = s.batteryL, let r = s.batteryR {
+        if buds.isConnected {
             Image(systemName: "earbuds")
-            Text("\(min(l, r))%")
+            if let l = s.batteryL, let r = s.batteryR { Text("\(min(l, r))%") }
         } else {
-            Image(systemName: "earbuds")
+            // SwiftUI opacity is ignored in the status item, so draw a faded template image.
+            Image(nsImage: Self.dimmedIcon)
         }
     }
+
+    private static let dimmedIcon: NSImage = {
+        let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
+        guard let symbol = NSImage(systemSymbolName: "earbuds", accessibilityDescription: "BudsBar")?
+            .withSymbolConfiguration(config) else { return NSImage() }
+        // Rendered once into a 2x bitmap (a drawing-handler image would redraw on every menu bar refresh).
+        let size = symbol.size
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2),
+                                         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                         colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return symbol }
+        rep.size = size
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        symbol.draw(in: NSRect(origin: .zero, size: size), from: .zero, operation: .sourceOver, fraction: 0.35)
+        NSGraphicsContext.restoreGraphicsState()
+        let image = NSImage(size: size)
+        image.addRepresentation(rep)
+        image.isTemplate = true
+        image.accessibilityDescription = String(localized: "BudsBar (not connected)")
+        return image
+    }()
 }
 
 /// Minimal append-only log at ~/Library/Logs/BudsBar.log.

@@ -63,6 +63,17 @@ public final class BudsConnection: NSObject {
         return pairedBuds().first
     }
 
+    /// Pages the Buds (baseband connect) without blocking the main thread. Only for explicit user
+    /// actions: paging pulls the Buds away from whatever they are connected to (e.g. a phone).
+    /// Returns once IOBluetooth reports the result; a missing callback (seen when the link is
+    /// already up) ends in a timeout, which the caller treats as "unknown" rather than failure.
+    public func page(_ device: IOBluetoothDevice, timeout: Double = 8) async throws {
+        try await wait(timeout: timeout, what: String(localized: "Bluetooth connection")) {
+            let r = device.openConnection(self)
+            if r != kIOReturnSuccess { throw BudsError.basebandFailed(r) }
+        }
+    }
+
     /// Opens the SPP channel. With `page` the baseband link is (re)established first; that call
     /// returns immediately when the Buds are already connected.
     public func connect(to device: IOBluetoothDevice, page: Bool = true) async throws {

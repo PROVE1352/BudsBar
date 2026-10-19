@@ -22,13 +22,38 @@ public final class BudsController {
             case .searching: String(localized: "Looking for Buds…")
             case .connecting(let n): String(localized: "Connecting to \(n)…")
             case .connected(let n): n
-            case .waiting(let n): String(localized: "Waiting for \(n) (take them out of the case)")
+            case .waiting: String(localized: "Not connected to this Mac")
             case .failed(let e): String(localized: "Error: \(e)")
             }
         }
     }
 
+    /// Progress of the user-initiated "Bring to Mac" action.
+    public enum BringState: Equatable, Sendable {
+        case idle
+        case working(attempt: Int, of: Int)
+        case cancelling
+        case succeeded
+        case failed(String)
+        case cancelled
+
+        public var isActive: Bool {
+            switch self { case .working, .cancelling: true; default: false }
+        }
+        public var label: String? {
+            switch self {
+            case .idle: nil
+            case .working(let a, let n): String(format: String(localized: "Bringing to Mac… %d/%d"), a, n)
+            case .cancelling: String(localized: "Cancelling…")
+            case .succeeded: String(localized: "Connected to this Mac")
+            case .failed(let e): e
+            case .cancelled: String(localized: "Cancelled")
+            }
+        }
+    }
+
     public private(set) var status: LinkStatus = .idle
+    public private(set) var bring: BringState = .idle
     public var state = BudsState()
     public private(set) var deviceName: String?
     public private(set) var hasESU = false
@@ -45,7 +70,7 @@ public final class BudsController {
     @ObservationIgnored public var onSent: ((Frame) -> Void)?
     @ObservationIgnored public var log: (String) -> Void = { _ in }
 
-    /// True while the buds are connected at the baseband level. The menu bar icon follows this.
+    /// True while the buds are connected at the baseband level (from IOBluetooth notifications).
     public private(set) var budsPresent = false
 
     @ObservationIgnored private let connection = BudsConnection()
@@ -57,6 +82,14 @@ public final class BudsController {
     @ObservationIgnored private var observer: ConnectObserver?
     @ObservationIgnored private var connecting = false
     @ObservationIgnored private var rfcommRetries = 0
+    @ObservationIgnored private var bringTask: Task<Bool, Never>?
+    /// Bumped on every baseband disconnect; Bring uses it to see whether a page held.
+    @ObservationIgnored private var basebandDrops = 0
+
+    /// Bring to Mac tuning: attempts, pause between them, and how long the page must hold.
+    static let bringAttempts = 4
+    static let bringRetryDelay: Duration = .seconds(2)
+    static let bringHold: Duration = .seconds(3)
 
     public init(address: String? = nil) {
         self.address = address
@@ -87,7 +120,7 @@ public final class BudsController {
 
     /// `page: true` forces a baseband connection (CLI / explicit user action).
     public func connect(page: Bool = true) async {
-        guard !connecting, !connection.isOpen else { return }
+        guard !connecting, !connection.isOpen, bringTask == nil else { return }
         connecting = true
         defer { connecting = false }
         status = .searching
@@ -108,20 +141,136 @@ public final class BudsController {
         log("opening RFCOMM to \(name)")
         do {
             try await connection.connect(to: device, page: page)
-            hasESU = false
-            rfcommRetries = 0
-            status = .connected(name)
-            lastError = nil
-            budsPresent = true
-            if autoReconnect { watchForDisconnect(device) }
-            log("connected \(name) [\(device.addressString ?? "")]")
-            afterConnect()
+            didConnect(device, name: name)
         } catch {
             lastError = error.localizedDescription
             log("connect failed: \(error.localizedDescription)")
             status = .failed(error.localizedDescription)
             retryWhileBasebandUp()
         }
+    }
+
+    private func didConnect(_ device: IOBluetoothDevice, name: String) {
+        hasESU = false
+        rfcommRetries = 0
+        status = .connected(name)
+        lastError = nil
+        budsPresent = true
+        if autoReconnect { watchForDisconnect(device) }
+        log("connected \(name) [\(device.addressString ?? "")]")
+        afterConnect()
+    }
+
+    // MARK: Bring to Mac
+    //
+    // The only place where the app pages the Buds on its own, and only because the user asked.
+    // When the Buds prefer the phone they often accept the page and drop it again within a
+    // second, so each attempt checks that the baseband link holds before opening RFCOMM.
+    // The loop lives inside this one action; afterwards the automatic paths stay page-free.
+
+    public var isBringing: Bool { bringTask != nil }
+
+    /// Starts Bring to Mac, or cancels it when it is already running.
+    public func toggleBring() {
+        if bringTask != nil { cancelBring() } else { startBring() }
+    }
+
+    public func cancelBring() {
+        guard let bringTask else { return }
+        log("bring: cancel requested")
+        bring = .cancelling
+        bringTask.cancel()
+    }
+
+    /// Returns the running task; its value is true when RFCOMM ended up open.
+    @discardableResult
+    public func startBring() -> Task<Bool, Never> {
+        if let bringTask { return bringTask }
+        let task = Task { [weak self] () -> Bool in
+            guard let self else { return false }
+            let ok = await self.runBring()
+            self.bringTask = nil
+            if !ok { self.retryWhileBasebandUp() }   // non-paging fallback if the link is up anyway
+            return ok
+        }
+        bringTask = task
+        return task
+    }
+
+    private func runBring() async -> Bool {
+        let total = Self.bringAttempts
+        lastError = nil
+        if connection.isOpen { bring = .succeeded; return true }
+        guard let device = BudsConnection.findBuds(address: address) else {
+            bring = .failed(BudsError.noPairedBuds.localizedDescription)
+            return false
+        }
+        let name = device.name ?? device.addressString ?? "Buds"
+        deviceName = name
+        address = device.addressString
+        var reason = String(localized: "The Buds did not stay connected. They may be in use on your phone.")
+
+        for attempt in 1...total {
+            if Task.isCancelled { break }
+            bring = .working(attempt: attempt, of: total)
+            log("bring: attempt \(attempt)/\(total)")
+            let drops = basebandDrops
+
+            // 1. Page. A timeout here is not fatal: the link may already be up.
+            do {
+                try await connection.page(device)
+            } catch BudsError.timeout {
+                log("bring: page callback timed out")
+            } catch {
+                log("bring: page failed: \(error.localizedDescription)")
+                reason = error.localizedDescription
+                if await pauseBeforeRetry(attempt) { continue } else { break }
+            }
+            if Task.isCancelled { break }
+
+            // 2. Hold: the baseband must stay up (no disconnect notification) for a few seconds.
+            try? await Task.sleep(for: Self.bringHold)
+            if Task.isCancelled { break }
+            guard basebandDrops == drops, budsPresent || device.isConnected() else {
+                log("bring: link dropped during hold")
+                if await pauseBeforeRetry(attempt) { continue } else { break }
+            }
+
+            // 3. RFCOMM (no page; the link is up).
+            if connection.isOpen { bring = .succeeded; return true }
+            status = .connecting(name)
+            log("bring: opening RFCOMM to \(name)")
+            do {
+                try await connection.connect(to: device, page: false)
+                didConnect(device, name: name)
+                bring = .succeeded
+                log("bring: done")
+                return true
+            } catch {
+                log("bring: RFCOMM failed: \(error.localizedDescription)")
+                reason = error.localizedDescription
+                status = .waiting(name)
+                if Task.isCancelled { break }
+                if await pauseBeforeRetry(attempt) { continue } else { break }
+            }
+        }
+
+        if Task.isCancelled {
+            log("bring: cancelled")
+            bring = .cancelled
+        } else {
+            log("bring: gave up")
+            bring = .failed(reason)
+        }
+        if !connection.isOpen { status = .waiting(name) }
+        return false
+    }
+
+    /// Sleeps between attempts. Returns false when there is no next attempt or it was cancelled.
+    private func pauseBeforeRetry(_ attempt: Int) async -> Bool {
+        guard attempt < Self.bringAttempts, !Task.isCancelled else { return false }
+        try? await Task.sleep(for: Self.bringRetryDelay)
+        return !Task.isCancelled
     }
 
     public func disconnect() {
@@ -143,22 +292,23 @@ public final class BudsController {
     /// for the connect notification. Retries never page: when the buds have moved to the phone,
     /// paging them would pull them back to the Mac.
     private func retryWhileBasebandUp() {
-        guard autoReconnect, budsPresent, rfcommRetries < 3 else { return }
+        guard autoReconnect, budsPresent, bringTask == nil, rfcommRetries < 3 else { return }
         rfcommRetries += 1
         let delay = Double(rfcommRetries) * 3
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
-            guard let self, self.budsPresent,
+            guard let self, self.budsPresent, self.bringTask == nil,
                   let device = BudsConnection.findBuds(address: self.address), device.isConnected()
             else { return }
             await self.connect(page: false)
         }
     }
 
-    /// Baseband went away: close RFCOMM, hide the icon and stay idle until the next connect event.
+    /// Baseband went away: close RFCOMM, dim the icon and stay idle until the next connect event.
     private func budsWentAway() {
         log("baseband disconnected")
         budsPresent = false
+        basebandDrops += 1
         pollTask?.cancel()
         connection.disconnect()
         disconnectNotification?.unregister()
@@ -181,7 +331,8 @@ public final class BudsController {
                 self.budsPresent = true
                 self.rfcommRetries = 0
                 self.watchForDisconnect(device)
-                guard !self.connection.isOpen else { return }
+                // While Bring to Mac runs it opens RFCOMM itself after its hold check.
+                guard !self.connection.isOpen, self.bringTask == nil else { return }
                 Task {
                     try? await Task.sleep(for: .seconds(1.5))   // let A2DP/HFP settle first
                     await self.connect(page: false)     // never page from an event: see retryWhileBasebandUp
@@ -288,7 +439,8 @@ public final class BudsController {
         }
     }
 
-    public var isConnected: Bool { connection.isOpen }
+    /// Reads `status` too so SwiftUI views (the menu bar icon) observe changes; `connection` is not observable.
+    public var isConnected: Bool { status.isConnected && connection.isOpen }
 
     // MARK: setters used by the UI (optimistic local update + send)
 
